@@ -1,5 +1,4 @@
 # StutterStitcher
-Automatically generate action sequence panoramas from videos or image sequences
 ![](outputs/dog_run.png) ![](outputs/maria_run.png)
 ### Requirements
 * Python 2.7 or 3.x
@@ -22,5 +21,8 @@ optional arguments:
                         frames) (default: 3)
 ```
 Rate is really the most important parameter to set, and should generally be 3-4 for image bursts, or 10-25 for video (these are rough estimates)
+### Todo
+* Foreground object detection
+* Sampling rate estimation
 ### Credits
-* [Sean Chen, Ben Stabler, and Andrew Stanley. Automatic Generation of Action Sequence Images from Burst Shots. 2013](https://stacks.stanford.edu/file/druid:yt916dh6570/Chen_Stabler_Stanley_Action_Sequence_Generation.pdf)
+* [Sean Chen, Ben Stabler, and Andrew Stanley. 2013. *Automatic Generation of Action Sequence Images from Burst Shots*. Stanford University, Stanford, California.](https://stacks.stanford.edu/file/druid:yt916dh6570/Chen_Stabler_Stanley_Action_Sequence_Generation.pdf)
