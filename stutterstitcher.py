@@ -6,7 +6,7 @@ import argparse
 import os, sys
 from glob import glob
 
-def make_action_sequence_panorama(images, num_fg_objs):
+def make_action_sequence_panorama(images, num_fg_objs, display=False):
     ref = images[0]
     warped_list = [ref]
     for im in images[1:]:
@@ -14,13 +14,14 @@ def make_action_sequence_panorama(images, num_fg_objs):
         warped_list.append(warped)
         
     bg = extract_background(warped_list, num_fg_objs)
-    cv2.imshow('background', bg)
-    cv2.waitKey(0)
-    result = merge_foregrounds(bg, warped_list, num_fg_objs, display=False)
+    if display:
+        cv2.imshow('background', bg)
+        cv2.waitKey(0)
+    result = merge_foregrounds(bg, warped_list, num_fg_objs, display)
     return result
     
 def get_edges(im, smooth_sigma=3.0, thresh_sigma=0.33):
-    smoothed = cv2.GaussianBlur(im, (7,7), smooth_sigma);
+    smoothed = cv2.GaussianBlur(im, (7,7), smooth_sigma)
     v = np.median(smoothed)
     # apply automatic Canny edge detection using the computed median
     lower = int(max(0, (1.0 - thresh_sigma) * v))
@@ -50,8 +51,7 @@ def hue_dist(h0, h1):
                    - np.abs(h1.astype(np.float64)-h0)), axis=0)
     return dist
 
-def extract_background(images, num_fg_objs=1, display=False):
-    
+def extract_background(images, num_fg_objs=1, display=False):    
     fimg = images[0]
     limg = images[-1]
     
@@ -79,10 +79,8 @@ def extract_background(images, num_fg_objs=1, display=False):
 #    thresh = diff_flat[np.argmax(diff_gaps)]
 
     thresh = np.mean(diff_gray)
-    #print thresh
     
-    _,diff_bin = cv2.threshold(diff_gray.astype(np.float32), thresh, 255, cv2.THRESH_BINARY)
-    #cv2.imwrite('diff_bin.png', cv2.normalize(diff_bin, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
+    _, diff_bin = cv2.threshold(diff_gray.astype(np.float32), thresh, 255, cv2.THRESH_BINARY)
     if display:
         cv2.imshow('diff binary mask', diff_bin)
         cv2.waitKey(0)
@@ -97,16 +95,16 @@ def extract_background(images, num_fg_objs=1, display=False):
     
     contours, heirarchy = cv2.findContours(diff_dilated.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     # only keep N biggest 
-    keep_N = 4*num_fg_objs + 1
-    nbiggest = sorted(contours, key=cv2.contourArea, reverse=True)[:keep_N]
+    keep_num = 4*num_fg_objs + 1
+    num_biggest = sorted(contours, key=cv2.contourArea, reverse=True)[:keep_num]
     
     if display:
         diff_biggest = np.zeros(diff_bin.shape, dtype=diff_bin.dtype)
-        cv2.drawContours(diff_biggest, nbiggest, -1, (255), 3)
+        cv2.drawContours(diff_biggest, num_biggest, -1, (255), 3)
         cv2.imshow('biggest contours', diff_biggest)
         cv2.waitKey(0)
     
-    diff_regions = [get_contour(c, diff_dilated.shape) for c in nbiggest]
+    diff_regions = [get_contour(c, diff_dilated.shape) for c in num_biggest]
     if display:
         for region in diff_regions:
             cv2.imshow('contour', region)
@@ -120,13 +118,9 @@ def extract_background(images, num_fg_objs=1, display=False):
         cv2.imshow('last image edges', ledged)
         cv2.waitKey(0)
     
-    
     edge_regions = [(np.bitwise_and(region, fedged), np.bitwise_and(region, ledged)) for region in diff_regions]
-    
     region_nz = np.array([np.count_nonzero(region) for region in diff_regions])
-    #print region_nz
     and_region_nz = np.array([[np.count_nonzero(a), np.count_nonzero(b)] for (a, b) in edge_regions])
-    #print and_region_nz
     
     cocos = and_region_nz.astype(np.float) / np.tile(region_nz, (2, 1)).T
     if display:
@@ -141,7 +135,7 @@ def extract_background(images, num_fg_objs=1, display=False):
             continue
         elif cc[0] > cc[1]:
             region = diff_regions[i]
-            cv2.fillPoly(region, pts=[nbiggest[i]], color=(255))
+            cv2.fillPoly(region, pts=[num_biggest[i]], color=(255))
             bg = blend(limg, bg, region)
             if display:
                 cv2.imshow('filled region', region)
@@ -219,14 +213,10 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
             cv2.imshow('first image edges', fedged)
             cv2.imshow('last image edges', ledged)
             cv2.waitKey(delay)
-        
-        
+              
         edge_regions = [(np.bitwise_and(region, fedged), np.bitwise_and(region, ledged)) for region in diff_regions]
-        
         region_nz = np.array([np.count_nonzero(region) for region in diff_regions])
-        #print region_nz
         and_region_nz = np.array([[np.count_nonzero(a), np.count_nonzero(b)] for (a, b) in edge_regions])
-        #print and_region_nz
         
         cocos = and_region_nz.astype(np.float) / np.tile(region_nz, (2, 1)).T
         if display:
@@ -332,11 +322,14 @@ if __name__ == "__main__":
     parser.add_argument('-fgo', '--foreground-objects', type=int, default=1, help='Number of foreground objects in scene (default: %(default)s)')
     parser.add_argument('-s', '--scale', type=float, default=0.2, help='Scale input images by factor (default: %(default)s)')
     parser.add_argument('-r', '--rate', type=int, default=3, help='Frame resampling rate (e.g. 3 means keep 1 in 3 frames) (default: %(default)s)')
+    parser.add_argument('-o', '--output', default='out.png', help='Output filename (default: %(default)s)')
+    parser.add_argument('--show', action='store_true', help='Display results')
     args = parser.parse_args()
     
     data_path = args.data
     scale = args.scale
     rate = args.rate
+    out_fname = args.output
     
     if os.path.isdir(data_path):
         images = read_images(data_path)
@@ -358,9 +351,9 @@ if __name__ == "__main__":
     images = [cv2.resize(im, None, fx=scale, fy=scale) for im in images]
     
     pan = make_action_sequence_panorama(images, args.foreground_objects)
-    cv2.imwrite('pano.png', pan)
+    cv2.imwrite(out_fname, pan)
     
-    cv2.imshow('Sequence', pan)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-    
+    if args.show:
+        cv2.imshow('Result', pan)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
