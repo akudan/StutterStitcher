@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 18 23:13:33 2018
 
-@author: ARIELAK
-"""
 import numpy as np
 import cv2
 import argparse
