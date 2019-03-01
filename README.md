@@ -2,9 +2,9 @@
 ![](outputs/dog_run.png) ![](outputs/maria_run.png)
 ### Requirements
 * Python 2.7 or 3.x
-* OpenCV
+* OpenCV 3 (+contrib)
 * NumPy
-* Glob
+* Matplotlib (for display and debugging)
 ### Usage
 ```
 python stutterstitcher.py [-h] [-fgo FOREGROUND_OBJECTS] [-s SCALE] [-r RATE] data

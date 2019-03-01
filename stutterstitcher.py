@@ -5,6 +5,7 @@ import cv2
 import argparse
 import os, sys
 from glob import glob
+import matplotlib.pyplot as plt
 
 def make_action_sequence_panorama(images, num_fg_objs, display=False):
     ref = images[0]
@@ -15,8 +16,8 @@ def make_action_sequence_panorama(images, num_fg_objs, display=False):
         
     bg = extract_background(warped_list, num_fg_objs)
     if display:
-        cv2.imshow('background', bg)
-        cv2.waitKey(0)
+        imshow('background', bg)
+        
     result = merge_foregrounds(bg, warped_list, num_fg_objs, display)
     return result
     
@@ -65,8 +66,7 @@ def extract_background(images, num_fg_objs=1, display=False):
 
 #    diff_gray = cv2.cvtColor(cv2.absdiff(fimg, limg), cv2.COLOR_BGR2GRAY)
     if display:
-        cv2.imshow('diff', cv2.normalize(diff_gray, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
-        cv2.waitKey(0)
+        imshow('diff', cv2.normalize(diff_gray, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
     
 #    diff_flat = diff_gray.flatten()
 #    diff_flat, df_sz = np.sort(diff_flat), diff_flat.size
@@ -82,18 +82,16 @@ def extract_background(images, num_fg_objs=1, display=False):
     
     _, diff_bin = cv2.threshold(diff_gray.astype(np.float32), thresh, 255, cv2.THRESH_BINARY)
     if display:
-        cv2.imshow('diff binary mask', diff_bin)
-        cv2.waitKey(0)
+        imshow('diff binary mask', diff_bin)  
 
     struct_elt = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
     diff_eroded = cv2.erode(diff_bin, kernel=struct_elt, iterations = 3)
     diff_dilated = cv2.dilate(diff_eroded, kernel=struct_elt, iterations = 3)
 
     if display:
-        cv2.imshow('dilated mask', diff_dilated)
-        cv2.waitKey(0)
+        imshow('dilated mask', diff_dilated)
     
-    contours, heirarchy = cv2.findContours(diff_dilated.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    _, contours, _ = cv2.findContours(diff_dilated.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     # only keep N biggest 
     keep_num = 4*num_fg_objs + 1
     num_biggest = sorted(contours, key=cv2.contourArea, reverse=True)[:keep_num]
@@ -101,22 +99,19 @@ def extract_background(images, num_fg_objs=1, display=False):
     if display:
         diff_biggest = np.zeros(diff_bin.shape, dtype=diff_bin.dtype)
         cv2.drawContours(diff_biggest, num_biggest, -1, (255), 3)
-        cv2.imshow('biggest contours', diff_biggest)
-        cv2.waitKey(0)
+        imshow('biggest contours', diff_biggest) 
     
     diff_regions = [get_contour(c, diff_dilated.shape) for c in num_biggest]
     if display:
         for region in diff_regions:
-            cv2.imshow('contour', region)
-            cv2.waitKey(0)
+            imshow('contour', region)     
     
     fedged = get_edges(fimg_hsv[...,0])
     ledged = get_edges(limg_hsv[...,0])
     
     if display:
-        cv2.imshow('first image edges', fedged)
-        cv2.imshow('last image edges', ledged)
-        cv2.waitKey(0)
+        imshow('first image edges', fedged)
+        imshow('last image edges', ledged) 
     
     edge_regions = [(np.bitwise_and(region, fedged), np.bitwise_and(region, ledged)) for region in diff_regions]
     region_nz = np.array([np.count_nonzero(region) for region in diff_regions])
@@ -125,9 +120,9 @@ def extract_background(images, num_fg_objs=1, display=False):
     cocos = and_region_nz.astype(np.float) / np.tile(region_nz, (2, 1)).T
     if display:
         for i,er in enumerate(edge_regions):
-            cv2.imshow('edge region A', er[0])
-            cv2.imshow('edge region B', er[1])
-            cv2.waitKey(0)
+            imshow('edge region A', er[0])
+            imshow('edge region B', er[1])
+            
     
     bg = images[0]
     for i, cc in enumerate(cocos):
@@ -138,8 +133,8 @@ def extract_background(images, num_fg_objs=1, display=False):
             cv2.fillPoly(region, pts=[num_biggest[i]], color=(255))
             bg = blend(limg, bg, region)
             if display:
-                cv2.imshow('filled region', region)
-                cv2.waitKey(0)
+                imshow('filled region', region)
+                
         
     return bg
 
@@ -160,7 +155,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
     
     #    diff_gray = cv2.cvtColor(cv2.absdiff(fimg, limg), cv2.COLOR_BGR2GRAY)
         if display:
-            cv2.imshow('diff', cv2.normalize(diff_gray, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
+            imshow('diff', cv2.normalize(diff_gray, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
             cv2.waitKey(delay)
         
     #    diff_flat = diff_gray.flatten()
@@ -179,7 +174,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
         _,diff_bin = cv2.threshold(diff_gray.astype(np.float32), thresh, 255, cv2.THRESH_BINARY)
     
         if display:
-            cv2.imshow('diff binary mask', diff_bin)
+            imshow('diff binary mask', diff_bin)
             cv2.waitKey(delay)
     
         struct_elt = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 4))
@@ -187,31 +182,31 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
         diff_dilated = cv2.dilate(diff_eroded, kernel=struct_elt, iterations = 1)
     
         if display:
-            cv2.imshow('dilated mask', diff_dilated)
+            imshow('dilated mask', diff_dilated)
             cv2.waitKey(delay)
         
-        contours, heirarchy = cv2.findContours(diff_dilated.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        _, contours, _ = cv2.findContours(diff_dilated.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         # only keep N biggest regions
-        nbiggest = sorted(contours, key=cv2.contourArea, reverse=True)[:num_fg_objs]
+        num_biggest = sorted(contours, key=cv2.contourArea, reverse=True)[:num_fg_objs]
         
         if display:
             diff_biggest = np.zeros(diff_bin.shape, dtype=diff_bin.dtype)
-            cv2.drawContours(diff_biggest, nbiggest, -1, (255), 3)
-            cv2.imshow('biggest contours', diff_biggest)
+            cv2.drawContours(diff_biggest, num_biggest, -1, (255), 3)
+            imshow('biggest contours', diff_biggest)
             cv2.waitKey(delay)
         
-        diff_regions = [get_contour(c, diff_dilated.shape) for c in nbiggest]
+        diff_regions = [get_contour(c, diff_dilated.shape) for c in num_biggest]
         if display:
             for region in diff_regions:
-                cv2.imshow('contour', region)
+                imshow('contour', region)
                 cv2.waitKey(delay)
         
         fedged = get_edges(fimg_hsv[...,0])
         ledged = get_edges(limg_hsv[...,0])
         
         if display:
-            cv2.imshow('first image edges', fedged)
-            cv2.imshow('last image edges', ledged)
+            imshow('first image edges', fedged)
+            imshow('last image edges', ledged)
             cv2.waitKey(delay)
               
         edge_regions = [(np.bitwise_and(region, fedged), np.bitwise_and(region, ledged)) for region in diff_regions]
@@ -221,8 +216,8 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
         cocos = and_region_nz.astype(np.float) / np.tile(region_nz, (2, 1)).T
         if display:
             for i,er in enumerate(edge_regions):
-                cv2.imshow('edge region A', er[0])
-                cv2.imshow('edge region B', er[1])
+                imshow('edge region A', er[0])
+                imshow('edge region B', er[1])
                 cv2.waitKey(delay)
         
         for i, cc in enumerate(cocos):
@@ -230,7 +225,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
                 continue
             elif cc[0] < cc[1]:
                 region = diff_regions[i]
-                cv2.fillPoly(region, pts=[nbiggest[i]], color=(255))
+                cv2.fillPoly(region, pts=[num_biggest[i]], color=(255))
                 struct_elt = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (100, 100))
                 region_dilated = cv2.dilate(region, kernel = struct_elt, iterations = 1)
                 for fg in fgs:
@@ -238,7 +233,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
                 merged = blend(limg, merged, region_dilated)
                 fgs.append(region)
                 if display:
-                    cv2.imshow('filled and dilated region', region_dilated)
+                    imshow('filled and dilated region', region_dilated)
                     cv2.waitKey(delay)
         
     return merged
@@ -257,11 +252,11 @@ def blend(imA, imB, mask):
 
 def get_features(im):
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    surf = cv2.SURF()
+    surf = cv2.xfeatures2d.SURF_create()
     kps, des = surf.detectAndCompute(gray, None)
     kps = np.float32([kp.pt for kp in kps])
     return kps, des
-        
+    
 def match(imA, imB, ratio=0.7, reproj_thres=4):
     kpsA, featuresA = get_features(imA)
     kpsB, featuresB = get_features(imB)
@@ -289,7 +284,7 @@ def match(imA, imB, ratio=0.7, reproj_thres=4):
 #        ptsB = ptsB[keep_idcs]
         
         if len(ptsA) > 3:
-            H, s = cv2.findHomography(ptsA, ptsB, cv2.RANSAC, reproj_thres)
+            H, _ = cv2.findHomography(ptsA, ptsB, cv2.RANSAC, reproj_thres)
             return H
         else:
             return None
@@ -300,13 +295,18 @@ def warp(imA, imB):
     dsize = (imA.shape[1], imA.shape[0])
     result = cv2.warpPerspective(imA, H, dsize)
     return result
-    
+
+def insensitive_glob(pattern):
+    def either(c):
+        return '[%s%s]' % (c.lower(), c.upper()) if c.isalpha() else c
+    return glob(''.join(map(either, pattern)))
+
 def read_images(image_dir):
     extensions = ['bmp', 'pbm', 'pgm', 'ppm', 'sr', 'ras', 'jpeg',
                   'jpg', 'jpe', 'jp2', 'tiff', 'tif', 'png']
 
     search_paths = [os.path.join(image_dir, '*.' + ext) for ext in extensions]
-    image_files = sorted(sum(map(glob, search_paths), []))
+    image_files = sorted(sum(map(insensitive_glob, search_paths), []))
     images = [cv2.imread(f, cv2.IMREAD_UNCHANGED | cv2.IMREAD_COLOR) for f in image_files]
     bad_read = any([img is None for img in images])
     if bad_read:
@@ -315,6 +315,13 @@ def read_images(image_dir):
             .format(image_dir))
 
     return images
+    
+def imshow(dispn, im):
+    im2 = im.copy()
+    im2[:, :, 0] = im[:, :, 2]
+    im2[:, :, 2] = im[:, :, 0]
+    plt.imshow(im2)
+    plt.show()
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate action sequence panorama')
@@ -354,6 +361,4 @@ if __name__ == "__main__":
     cv2.imwrite(out_fname, pan)
     
     if args.show:
-        cv2.imshow('Result', pan)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        imshow('Result', pan)
