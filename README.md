@@ -7,18 +7,27 @@
 * Matplotlib (for display and debugging)
 ### Usage
 ```
-python stutterstitcher.py [-h] [-fgo FOREGROUND_OBJECTS] [-s SCALE] [-r RATE] data
+usage: stutterstitcher.py [-h] [-n NUM_FOREGROUND] [-r RATE] [-s SCALE]
+                          [-o OUTPUT] [--show] [-v]
+                          data
+
 positional arguments:
   data                  Path to image folder or video file
 
 optional arguments:
   -h, --help            show this help message and exit
-  -fgo FOREGROUND_OBJECTS, --foreground-objects FOREGROUND_OBJECTS
-                        Number of foreground objects in scene (default: 1)
-  -s SCALE, --scale SCALE
-                        Scale input images by factor (default: 0.2)
+  -n NUM_FOREGROUND, --num-foreground NUM_FOREGROUND
+                        Number of foreground objects in scene (default:
+                        autodetect)
   -r RATE, --rate RATE  Frame resampling rate (e.g. 3 means keep 1 in 3
-                        frames) (default: 3)
+                        frames) (default: autodetect)
+  -s SCALE, --scale SCALE
+                        Scale input images by factor (default: 0.5)
+  -o OUTPUT, --output OUTPUT
+                        Output filename (default: out.png)
+  --show                Display results
+  -v, --verbose         Display intermediate results and verbose output
+
 ```
 Rate is really the most important parameter to set, and should generally be 3-4 for image bursts, or 10-25 for video (these are rough estimates)
 ### Todo

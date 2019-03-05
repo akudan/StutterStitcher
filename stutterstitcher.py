@@ -6,11 +6,13 @@ import argparse
 import os, sys
 from glob import glob
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def make_action_sequence_panorama(images, num_fg_objs, display=False):
     ref = images[0]
     warped_list = [ref]
-    for im in images[1:]:
+    print("Warping images")
+    for im in tqdm(images[1:]):
         warped = warp(im, ref)
         warped_list.append(warped)
         
@@ -52,7 +54,8 @@ def hue_dist(h0, h1):
                    - np.abs(h1.astype(np.float64)-h0)), axis=0)
     return dist
 
-def extract_background(images, num_fg_objs=1, display=False):    
+def extract_background(images, num_fg_objs=1, display=False):
+    print("Extracting background")   
     fimg = images[0]
     limg = images[-1]
     
@@ -66,7 +69,7 @@ def extract_background(images, num_fg_objs=1, display=False):
 
 #    diff_gray = cv2.cvtColor(cv2.absdiff(fimg, limg), cv2.COLOR_BGR2GRAY)
     if display:
-        imshow('diff', cv2.normalize(diff_gray, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
+        imshow('diff', cv2.normalize(diff_gray, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
     
 #    diff_flat = diff_gray.flatten()
 #    diff_flat, df_sz = np.sort(diff_flat), diff_flat.size
@@ -144,8 +147,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
     fgs = []
     fimg_hsv = cv2.cvtColor(bg, cv2.COLOR_BGR2HSV_FULL)
     
-    for it, limg in enumerate(images):
-        print("# {}".format(it))
+    for it, limg in enumerate(tqdm(images)):
         limg_hsv = cv2.cvtColor(limg, cv2.COLOR_BGR2HSV_FULL)
         
         diff_hsv = cv2.absdiff(fimg_hsv, limg_hsv)
@@ -155,8 +157,8 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
     
     #    diff_gray = cv2.cvtColor(cv2.absdiff(fimg, limg), cv2.COLOR_BGR2GRAY)
         if display:
-            imshow('diff', cv2.normalize(diff_gray, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
-            cv2.waitKey(delay)
+            imshow('diff', cv2.normalize(diff_gray, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U))
+            plt.pause(float(delay)/1000)
         
     #    diff_flat = diff_gray.flatten()
     #    diff_flat, df_sz = np.sort(diff_flat), diff_flat.size
@@ -175,7 +177,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
     
         if display:
             imshow('diff binary mask', diff_bin)
-            cv2.waitKey(delay)
+            plt.pause(float(delay)/1000)
     
         struct_elt = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 4))
         diff_eroded = cv2.erode(diff_bin, kernel=struct_elt, iterations = 1)
@@ -183,7 +185,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
     
         if display:
             imshow('dilated mask', diff_dilated)
-            cv2.waitKey(delay)
+            plt.pause(float(delay)/1000)
         
         _, contours, _ = cv2.findContours(diff_dilated.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         # only keep N biggest regions
@@ -193,13 +195,13 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
             diff_biggest = np.zeros(diff_bin.shape, dtype=diff_bin.dtype)
             cv2.drawContours(diff_biggest, num_biggest, -1, (255), 3)
             imshow('biggest contours', diff_biggest)
-            cv2.waitKey(delay)
+            plt.pause(float(delay)/1000)
         
         diff_regions = [get_contour(c, diff_dilated.shape) for c in num_biggest]
         if display:
             for region in diff_regions:
                 imshow('contour', region)
-                cv2.waitKey(delay)
+                plt.pause(float(delay)/1000)
         
         fedged = get_edges(fimg_hsv[...,0])
         ledged = get_edges(limg_hsv[...,0])
@@ -207,7 +209,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
         if display:
             imshow('first image edges', fedged)
             imshow('last image edges', ledged)
-            cv2.waitKey(delay)
+            plt.pause(float(delay)/1000)
               
         edge_regions = [(np.bitwise_and(region, fedged), np.bitwise_and(region, ledged)) for region in diff_regions]
         region_nz = np.array([np.count_nonzero(region) for region in diff_regions])
@@ -218,7 +220,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
             for i,er in enumerate(edge_regions):
                 imshow('edge region A', er[0])
                 imshow('edge region B', er[1])
-                cv2.waitKey(delay)
+                plt.pause(float(delay)/1000)
         
         for i, cc in enumerate(cocos):
             if np.allclose(cc[0], cc[1]):
@@ -234,7 +236,7 @@ def merge_foregrounds(bg, images, num_fg_objs=1, display=False, delay=100):
                 fgs.append(region)
                 if display:
                     imshow('filled and dilated region', region_dilated)
-                    cv2.waitKey(delay)
+                    plt.pause(float(delay)/1000)
         
     return merged
 
@@ -275,13 +277,6 @@ def match(imA, imB, ratio=0.7, reproj_thres=4):
     if len(matches) > 3:
         ptsA = np.float32([kpsA[i] for (_, i) in matches])
         ptsB = np.float32([kpsB[i] for (i, _) in matches])
-
-#        pts_dist = np.array([np.sqrt((b[0] - a[0])**2 + (b[1] - a[1])**2) for (a, b) in zip(ptsA, ptsB)])
-#        min_dist = np.median(pts_dist)
-#        keep_idcs = np.where(pts_dist <= min_dist * 2)
-#        
-#        ptsA = ptsA[keep_idcs]
-#        ptsB = ptsB[keep_idcs]
         
         if len(ptsA) > 3:
             H, _ = cv2.findHomography(ptsA, ptsB, cv2.RANSAC, reproj_thres)
@@ -318,29 +313,107 @@ def read_images(image_dir):
     
 def imshow(dispn, im):
     im2 = im.copy()
-    im2[:, :, 0] = im[:, :, 2]
-    im2[:, :, 2] = im[:, :, 0]
-    plt.imshow(im2)
+    if len(im2.shape) > 2:
+        im2[:, :, 0] = im[:, :, 2]
+        im2[:, :, 2] = im[:, :, 0]
+    fig1, ax1 = plt.subplots()
+    ax1.set_title(dispn)
+    ax1.imshow(im2)
     plt.show()
     
+def normalized_edges(im_in):
+    image = im_in.copy()
+    if len(image.shape) > 2:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image = cv2.GaussianBlur(image, (7, 7), 0)     # blur image
+    image = cv2.Canny(image, 75, 100)              # edge detection
+    image = cv2.dilate(image, None, iterations=20) # dilation
+    image = cv2.erode(image, None, iterations=20)  # erosion -- close gaps  
+    return image
+    
+def normalize_shape(im_in):
+    im_rsz = cv2.resize(im_in, (300, 300))
+    grey = cv2.cvtColor(im_rsz, cv2.COLOR_BGR2GRAY) # gray    
+    return grey
+
+def detect_fg_objs(frames, min_area_px = 100, display=True):
+    norms = list(map(normalize_shape, frames))
+    average = np.sum(norms, axis=0, dtype=np.float32)/len(norms)
+    averagecon = cv2.convertScaleAbs(average)
+    grey = normalize_shape(frames[len(frames)//2])
+    frameDelta = cv2.absdiff(averagecon, grey)
+    #
+    #frameDelta = cv2.bitwise_and(frameDelta, grey)
+    thresh = cv2.threshold(frameDelta, 255//4, 255, cv2.THRESH_BINARY)[1]
+    thresh = cv2.erode(thresh, None, iterations=1)
+    thresh = cv2.dilate(thresh, None, iterations=2)
+    #
+    if display:
+        imshow('delta', frameDelta)
+        imshow('thresh', thresh)
+    image = normalized_edges(frameDelta)
+    contours = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[1]
+    detects = []
+    for c in contours:
+        if cv2.contourArea(c) >= min_area_px:
+            bbox = cv2.boundingRect(c)
+            detects.append(bbox)
+    return detects
+
+def dist(x,y):   
+    return np.sqrt(np.sum((x-y)**2))
+
+def bb_center(bbox):
+    x,y,w,h = bbox
+    center = np.array((x+.5*w, y+.5*h))
+    return center
+
+def estimate_sample_rate(detects, frames, min_avg_dist_px = 50, display=True):
+    frames = list(map(normalize_shape, frames))
+    tracker = cv2.TrackerCSRT_create()
+    start_pos = len(frames)//2
+    areas = [w*h for (x,y,w,h) in detects]
+    tracker.init(frames[start_pos], detects[np.argmax([areas])])
+    tracks = []
+    for f in frames[start_pos+1:]:
+        (success, box) = tracker.update(f)
+        # check to see if the tracking was a success
+        if success:
+            (x, y, w, h) = [int(v) for v in box]
+            tracks.append(box)
+            if display:
+                fc = f.copy()
+                cv2.rectangle(fc, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                imshow('tracking', fc)
+    t0 = bb_center(tracks[0])
+    i = 0
+    cur_dist = -np.inf
+    while cur_dist < min_avg_dist_px and i < len(tracks):
+        tn = bb_center(tracks[i])
+        cur_dist = dist(t0, tn)
+        #print(cur_dist)
+        i+=1
+    return i
+    
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Generate action sequence panorama')
+    parser = argparse.ArgumentParser(description='Generates action sequence panoramas')
     parser.add_argument('data', help='Path to image folder or video file')
-    parser.add_argument('-fgo', '--foreground-objects', type=int, default=1, help='Number of foreground objects in scene (default: %(default)s)')
-    parser.add_argument('-s', '--scale', type=float, default=0.2, help='Scale input images by factor (default: %(default)s)')
-    parser.add_argument('-r', '--rate', type=int, default=3, help='Frame resampling rate (e.g. 3 means keep 1 in 3 frames) (default: %(default)s)')
+    parser.add_argument('-n', '--num-foreground', type=int, help='Number of foreground objects in scene (default: autodetect)')
+    parser.add_argument('-r', '--rate', type=int, help='Frame resampling rate (e.g. 3 means keep 1 in 3 frames) (default: autodetect)')
+    parser.add_argument('-s', '--scale', type=float, default=0.5, help='Scale input images by factor (default: %(default)s)')
     parser.add_argument('-o', '--output', default='out.png', help='Output filename (default: %(default)s)')
     parser.add_argument('--show', action='store_true', help='Display results')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Display intermediate results and verbose output')
     args = parser.parse_args()
     
     data_path = args.data
     scale = args.scale
-    rate = args.rate
     out_fname = args.output
+    verbose = args.verbose
     
     if os.path.isdir(data_path):
+        print("Loading images")
         images = read_images(data_path)
-        images = images[::rate]
     elif os.path.isfile(data_path):
         images = []
         vidcap = cv2.VideoCapture(data_path)
@@ -348,16 +421,35 @@ if __name__ == "__main__":
         count = 0
         success = True
         while success:
+            sys.stdout.write("\rLoading frames{}".format("."*int(np.log(count+1))))
+            sys.stdout.flush()
             success, image = vidcap.read()
-            if count % rate == 0:
+            if success:
                 images.append(image)
             count += 1
+        print()
     else:
         sys.exit('File not found')
     
     images = [cv2.resize(im, None, fx=scale, fy=scale) for im in images]
-    
-    pan = make_action_sequence_panorama(images, args.foreground_objects)
+    detects = None
+    if args.num_foreground:
+        nfg = args.num_foreground
+    else:
+        print('Estimating number of foreground objects')
+        detects = detect_fg_objs(images)
+        nfg = len(detects)
+    print("Foreground objects: {}".format(nfg))
+    if args.rate:
+        rate = args.rate
+    else:
+        if detects is None:
+            detects = detect_fg_objs(images)
+        print('Estimating sampling rate')
+        rate = estimate_sample_rate(detects, images)
+    print("Sampling rate: {}".format(rate))
+    images = images[::rate]
+    pan = make_action_sequence_panorama(images, nfg, display=verbose)
     cv2.imwrite(out_fname, pan)
     
     if args.show:
