@@ -336,7 +336,7 @@ def normalize_shape(im_in):
     grey = cv2.cvtColor(im_rsz, cv2.COLOR_BGR2GRAY) # gray    
     return grey
 
-def detect_fg_objs(frames, min_area_px = 100, display=True):
+def detect_fg_objs(frames, min_area_px = 100, display=False):
     norms = list(map(normalize_shape, frames))
     average = np.sum(norms, axis=0, dtype=np.float32)/len(norms)
     averagecon = cv2.convertScaleAbs(average)
@@ -368,7 +368,7 @@ def bb_center(bbox):
     center = np.array((x+.5*w, y+.5*h))
     return center
 
-def estimate_sample_rate(detects, frames, min_avg_dist_px = 50, display=True):
+def estimate_sample_rate(detects, frames, min_avg_dist_px = 50, display=False):
     frames = list(map(normalize_shape, frames))
     tracker = cv2.TrackerCSRT_create()
     start_pos = len(frames)//2

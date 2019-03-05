@@ -1,7 +1,7 @@
 # StutterStitcher
 ![](outputs/dog_run.png) ![](outputs/maria_run.png)
 ### Requirements
-* Python 2.7 or 3.x
+* Python 3
 * OpenCV 3 (+contrib)
 * NumPy
 * Matplotlib (for display and debugging)
